@@ -1,2 +1,15 @@
 requests
 beautifulsoup4
+
+# browser-use agent module
+browser-use==0.1.48
+playwright>=1.40.0
+pyperclip==1.9.0
+json-repair
+langchain-mistralai==0.2.4
+MainContentExtractor==0.0.4
+langchain-ibm==0.3.10
+langgraph==0.3.34
+langchain-community
+python-dotenv>=1.0.1
+openai==1.99.1

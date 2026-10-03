@@ -65,6 +65,9 @@ db.sqlite3-journal
 hockey.sqlite3
 data/
 
+# browser-use agent output
+tmp/
+
 # Flask stuff:
 instance/
 .webassets-cache
