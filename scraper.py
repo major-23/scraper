@@ -15,11 +15,14 @@ from bs4 import BeautifulSoup
 from requests.exceptions import SSLError
 from urllib3.exceptions import InsecureRequestWarning
 
+import run_guard
+
 BASE_URL = 'https://www.scrapethissite.com/pages/forms/'
 PAGE_PARAM = 'page_num'
 DB_PATH = 'hockey.sqlite3'
 DATA_DIR = 'data'
 REQUEST_DELAY = 0.5
+START_PAGE = 1
 
 # Fields scraped from each row, mapped to the <td> class used on the page.
 COLUMN_CLASSES = {
@@ -70,20 +73,6 @@ def fetch(url, params=None):
         return requests.get(url, params=params, timeout=30, verify=False)
 
 
-def get_total_pages(soup):
-    pages = []
-    pagination = soup.find('ul', class_='pagination')
-    if pagination is None:
-        return 1
-    for link in pagination.find_all('a'):
-        href = link.get('href', '')
-        if PAGE_PARAM + '=' in href:
-            page_num = to_int(href.split(PAGE_PARAM + '=')[-1])
-            if page_num is not None:
-                pages.append(page_num)
-    return max(pages) if pages else 1
-
-
 def parse_rows(soup, page_num):
     rows = []
     for row in soup.find_all('tr', class_='team'):
@@ -102,25 +91,25 @@ def parse_rows(soup, page_num):
     return rows
 
 
-def scrape():
-    first = fetch(BASE_URL, params={PAGE_PARAM: 1})
-    first.raise_for_status()
-    soup = BeautifulSoup(first.text, 'html.parser')
+def scrape(start_page=START_PAGE):
+    records = []
+    page_num = start_page
 
-    total_pages = get_total_pages(soup)
-    print('Found {} page(s) to scrape.'.format(total_pages))
-
-    records = parse_rows(soup, 1)
-    print('Page 1: {} records'.format(len(records)))
-
-    for page_num in range(2, total_pages + 1):
-        time.sleep(REQUEST_DELAY)
+    while True:
         response = fetch(BASE_URL, params={PAGE_PARAM: page_num})
         response.raise_for_status()
-        page_soup = BeautifulSoup(response.text, 'html.parser')
-        page_records = parse_rows(page_soup, page_num)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        page_records = parse_rows(soup, page_num)
+
+        if not page_records:
+            print('Page {}: no data, stopping.'.format(page_num))
+            break
+
         records.extend(page_records)
         print('Page {}: {} records'.format(page_num, len(page_records)))
+
+        page_num += 1
+        time.sleep(REQUEST_DELAY)
 
     return records
 
@@ -210,8 +199,12 @@ def export_json(records, run_id, started_at):
 
 
 def main():
+    if not run_guard.check_run_allowed(BASE_URL, 'static-scraper'):
+        print('Exiting without scraping.')
+        return
+
     started_at = datetime.now(timezone.utc).isoformat()
-    records = scrape()
+    records = scrape(START_PAGE)
 
     conn = sqlite3.connect(DB_PATH)
     try:

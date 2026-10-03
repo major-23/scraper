@@ -63,6 +63,8 @@ db.sqlite3-journal
 
 # Scraper output
 hockey.sqlite3
+hockey_browser.sqlite3
+runs.sqlite3
 data/
 
 # browser-use agent output
